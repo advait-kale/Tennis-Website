@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Query, Path
+from rich.repr import Result
+from openpyxl.chart import title
+from fastapi import FastAPI, Query, Path, Body
 from enum import Enum
 import pandas as pd 
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 from typing import Annotated, Literal
 
 app = FastAPI(description=" learning from the Docs")
@@ -52,12 +54,68 @@ async def read_items(q:Annotated[str | None , Query(max_length=50)] = None):
     return {'q' : q}
 
 class FilterParams(BaseModel):
+    model_config = {'extra' : 'forbid'}
     limit : int = Field(100, gt=0, le=100)
     offset : int = Field(0, ge=0)
     order_by : Literal["Created_At", "Updated_at"] = "Created_At"
     tags : list[str] = []
+class Tags(BaseModel):
+    Enter_tags : list[str] = set()
 
-@app.get('/items/')
+@app.get('/items/models/')
 async def read_items(filter_query : Annotated[FilterParams, Query()]):
     return filter_query
+
+@app.get('items/multiplr_models/')
+async def two_methods(filters : Annotated[FilterParams | None, Query()],
+    Tags : Annotated[Tags, Query()]):
+    return [filters, Tags]
+
+# Body Parameters
+
+@app.put("/items/{item_id}")
+async def update_item(item_id : Annotated[int, Path()],
+    q:str | None = None,
+    item: Item | None =None,):
+    results = {"Item_id" : item_id}
+    if q:
+        results.update({"q" : q})
+    if item:
+        results.update({"item" : item.model_dump()})
+    return results
+
+class User(BaseModel):
+    username : str
+    full_name : str | None = None
+
+@app.put("/items/{item_id}")
+async def update_item_2(item_id : int, item: Item, user : User, importance : Annotated[int, Body(embed = True)]):
+    results = {
+        "item_id" : item_id,
+        "Item" : item,
+        "user" : user,
+        "importance" : importance
+    }
+    return results
+
+@app.put("/items/{item_id}")
+async def update_item_3(item_id : int, item : Annotated[Item, Body(embed=True)]):
+    result = {
+        "item_id" : item_id,
+        "item" : item}
+    return result
+
+@app.put("/items/{item_id}")
+def update_item_4(item_id, int, item : Item):
+    result = {"item_id" : item_id, "item" : item}
+    return result
+
+class Image(BaseModel):
+    url : HttpUrl
+    name : str
+
+@app.put("/item/{item_id}")
+async def update_item_5(item_id : int, url : HttpUrl):
+    results = {"item_id" : item_id, "URL" : url}
+    return results 
 
