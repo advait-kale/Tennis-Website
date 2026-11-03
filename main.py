@@ -1,11 +1,14 @@
 from rich.repr import Result
 from openpyxl.chart import title
-from fastapi import FastAPI, Query, Path, Body
+from fastapi import FastAPI, Query, Path, Body, Cookie, Request, Response
 from enum import Enum
 import pandas as pd 
 from pathlib import Path
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Annotated, Literal
+
+from datetime import datetime, time, timedelta
+from uuid import UUID
 
 app = FastAPI(description=" learning from the Docs")
 
@@ -119,3 +122,17 @@ async def update_item_5(item_id : int, url : HttpUrl):
     results = {"item_id" : item_id, "URL" : url}
     return results 
 
+@ app.get("/Post/{post_id}")
+async def get_post(post_id : UUID,
+            post_date : Annotated[datetime, Body(example='2026-11-04 12:00:00')],
+            content : Annotated[list[str] | None , Body()] = None):
+    result = {"post_id" : post_id,"post_date" : post_date, "content":content}
+    return result
+
+@app.get("/login")
+def login(response: Response):
+    response.set_cookie(
+        key="username",
+        value="Advait"
+    )
+    return {"message": "Login successful"}
