@@ -1,6 +1,7 @@
 from rich.repr import Result
 from openpyxl.chart import title
-from fastapi import FastAPI, Query, Path, Body, Cookie, Request, Response
+from fastapi import FastAPI, Query, Path, Body, Cookie, Request, Response, Header
+from fastapi import File, UploadFile
 from enum import Enum
 import pandas as pd 
 from pathlib import Path
@@ -124,7 +125,7 @@ async def update_item_5(item_id : int, url : HttpUrl):
 
 @ app.get("/Post/{post_id}")
 async def get_post(post_id : UUID,
-            post_date : Annotated[datetime, Body(example='2026-11-04 12:00:00')],
+            post_date : Annotated[datetime, Body(examples=['2026-11-04 12:00:00'])],
             content : Annotated[list[str] | None , Body()] = None):
     result = {"post_id" : post_id,"post_date" : post_date, "content":content}
     return result
@@ -136,3 +137,42 @@ def login(response: Response):
         value="Advait"
     )
     return {"message": "Login successful"}
+
+@ app.get("/items_header/")
+async def read_items(user_agent: Annotated[str | None, Header()]):
+    return {
+        "User-Agent" : user_agent
+    }
+
+@app.post("/upload_file/")
+async def upload_file(files: Annotated[list[UploadFile], File()]):
+    result = []
+    for file in files:
+        content = await file.read()
+        with open(file.filename, 'wb') as f:
+            f.write(content)
+        result.append(file.filename)
+    return {"filenames": result}
+
+
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    # Patch list[UploadFile] schemas so Swagger UI renders file pickers
+    for schema in openapi_schema.get("components", {}).get("schemas", {}).values():
+        for prop in schema.get("properties", {}).values():
+            if prop.get("type") == "array" and "items" in prop:
+                if prop["items"].get("contentMediaType") == "application/octet-stream":
+                    prop["items"]["format"] = "binary"
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
